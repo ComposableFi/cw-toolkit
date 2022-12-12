@@ -712,6 +712,7 @@ pub fn execute_swap(
 
     let fees = FEES.load(deps.storage)?;
     let total_fee_percent = fees.lp_fee_percent + fees.protocol_fee_percent;
+
     let token_bought = get_input_price(
         input_amount,
         input_token.reserve,
