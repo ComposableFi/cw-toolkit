@@ -1,0 +1,13 @@
+**/target/
+/artifacts
+/vscode/*
+/result
+.direnv
+.DS_Store
+.cargo
+.env
+.rust-analyzer
+*.log
+.idea
+.fleet
+.*.swp
