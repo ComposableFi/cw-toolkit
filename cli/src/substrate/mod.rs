@@ -10,9 +10,9 @@ use sp_keyring::sr25519::Keyring;
 use std::{fmt::Display, str::FromStr};
 use subxt::tx::PairSigner;
 use subxt::SubstrateConfig;
-use subxt::ext::sp_core::{ed25519, Pair};
+use subxt::ext::sp_core::{sr25519, Pair};
 
-pub type CWSigner = PairSigner<SubstrateConfig, ed25519::Pair>;
+pub type CWSigner = PairSigner<SubstrateConfig, sr25519::Pair>;
 
 /// Interact with the CosmWasm contracts on a substrate-based chain.
 #[derive(Args, Debug)]
@@ -122,14 +122,24 @@ impl Command {
     }
 
     async fn dispatch_command(self) -> anyhow::Result<()> {
+		let name = self.name;
+		
         match self.subcommand {
             Subcommands::Rpc(command) => command.run(self.chain_endpoint).await,
             Subcommands::Tx(command) => {
-				let signer = PairSigner::new(ed25519::Pair::from_string("lol", None)?);
+
+				if let Some(name) = name {
+					let pair = sr25519::Pair::from_string(&format!("//{}", name), None)?;
+
+					let signer = PairSigner::new(pair);
+					
+					command
+						.run(signer, self.chain_endpoint, self.output_type)
+						.await
+				} else {
+					todo!()
+				}
 				
-                command
-                    .run(signer, self.chain_endpoint, self.output_type)
-                    .await
             }
         }
     }
