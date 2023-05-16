@@ -1,12 +1,13 @@
 use super::{
     cosmwasm,
+	CWSigner,
     subxt_api::api::{
         self,
-        cosmwasm::events,
+        cosmwasm::{events},
         runtime_types::{
-            pallet_cosmwasm::pallet::CodeIdentifier,
+			pallet_cosmwasm::types::CodeIdentifier,
             primitives::currency::CurrencyId,
-            sp_runtime::bounded::{bounded_btree_map::BoundedBTreeMap, bounded_vec::BoundedVec},
+			bounded_collections::{bounded_btree_map::BoundedBTreeMap, bounded_vec::BoundedVec},
         },
     },
     types::{
@@ -18,15 +19,13 @@ use super::{
     OutputType,
 };
 use clap::{Args, Subcommand};
+use scale_encode::EncodeAsFields;
 use serde::Serialize;
 use subxt::{
     blocks::ExtrinsicEvents,
     ext::{
         codec::Encode,
-        sp_core::Pair,
-        sp_runtime::{MultiSignature, MultiSigner},
     },
-    tx::PairSigner,
     OnlineClient, SubstrateConfig,
 };
 
@@ -55,23 +54,18 @@ pub enum Subcommands {
 }
 
 impl Command {
-    pub async fn run<P: Pair>(
+    pub async fn run(
         self,
-        pair: P,
+        signer: CWSigner,
         chain_endpoint: String,
         output_type: OutputType,
-    ) -> anyhow::Result<()>
-    where
-        P::Seed: TryFrom<Vec<u8>>,
-        MultiSignature: From<<P as Pair>::Signature>,
-        MultiSigner: From<<P as Pair>::Public>,
-    {
+    ) -> anyhow::Result<()> {
         match self.subcommands {
             Subcommands::Upload(upload) => {
                 let code = upload.fetch_code().await?;
                 let events = do_signed_transaction(
                     chain_endpoint,
-                    pair,
+                    signer,
                     api::tx().cosmwasm().upload(BoundedVec(code)),
                 )
                 .await?;
@@ -89,7 +83,7 @@ impl Command {
             }) => {
                 let events = do_signed_transaction(
                     chain_endpoint,
-                    pair,
+                    signer,
                     api::tx().cosmwasm().instantiate(
                         CodeIdentifier::CodeId(code_id),
                         BoundedVec(salt.into()),
@@ -118,7 +112,7 @@ impl Command {
             }) => {
                 let events = do_signed_transaction(
                     chain_endpoint,
-                    pair,
+                    signer,
                     api::tx().cosmwasm().execute(
                         contract,
                         BoundedBTreeMap(
@@ -144,7 +138,7 @@ impl Command {
             }) => {
                 let events = do_signed_transaction(
                     chain_endpoint,
-                    pair,
+                    signer,
                     api::tx().cosmwasm().migrate(
                         contract,
                         CodeIdentifier::CodeId(new_code_id),
@@ -164,7 +158,7 @@ impl Command {
             }) => {
                 let events = do_signed_transaction(
                     chain_endpoint,
-                    pair,
+                    signer,
                     api::tx().cosmwasm().update_admin(contract, new_admin, gas),
                 )
                 .await?;
@@ -175,17 +169,20 @@ impl Command {
     }
 }
 
-async fn do_signed_transaction<CallData: Encode, P: Pair>(
+async fn do_signed_transaction<CallData>(
     endpoint: String,
-    signer: P,
-    tx: subxt::tx::StaticTxPayload<CallData>,
+    signer: CWSigner,
+    tx: subxt::tx::Payload<CallData>,
 ) -> anyhow::Result<ExtrinsicEvents<SubstrateConfig>>
 where
-    MultiSignature: From<<P as Pair>::Signature>,
-    MultiSigner: From<<P as Pair>::Public>,
+	CallData: Encode + EncodeAsFields,
 {
-    let signer = PairSigner::new(signer);
+    let validate = api::validate_codegen;
+	
     let api = OnlineClient::<SubstrateConfig>::from_url(endpoint).await?;
+
+	validate(&api)?;
+		
     let events = api
         .tx()
         .sign_and_submit_then_watch_default(&tx, &signer)

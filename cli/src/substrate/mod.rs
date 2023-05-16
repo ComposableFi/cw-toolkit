@@ -5,14 +5,14 @@ mod tx;
 mod types;
 
 use crate::error::Error;
-use anyhow::anyhow;
 use clap::{Args, Subcommand};
 use sp_keyring::sr25519::Keyring;
 use std::{fmt::Display, str::FromStr};
-use subxt::ext::{
-    sp_core::{ed25519, sr25519, Pair},
-    sp_runtime::{MultiSignature, MultiSigner},
-};
+use subxt::tx::PairSigner;
+use subxt::SubstrateConfig;
+use subxt::ext::sp_core::{ed25519, Pair};
+
+pub type CWSigner = PairSigner<SubstrateConfig, ed25519::Pair>;
 
 /// Interact with the CosmWasm contracts on a substrate-based chain.
 #[derive(Args, Debug)]
@@ -116,58 +116,25 @@ impl Display for OutputType {
 impl Command {
     pub async fn run(self) -> anyhow::Result<()> {
         match self.scheme {
-            KeyScheme::Sr25519 => self.dispatch_command::<sr25519::Pair>().await,
-            KeyScheme::Ed25519 => self.dispatch_command::<ed25519::Pair>().await,
+            KeyScheme::Sr25519 => self.dispatch_command().await,
+            KeyScheme::Ed25519 => self.dispatch_command().await,
         }
     }
 
-    async fn dispatch_command<P: Pair>(self) -> anyhow::Result<()>
-    where
-        P::Seed: TryFrom<Vec<u8>>,
-        MultiSignature: From<<P as Pair>::Signature>,
-        MultiSigner: From<<P as Pair>::Public>,
-    {
+    async fn dispatch_command(self) -> anyhow::Result<()> {
         match self.subcommand {
             Subcommands::Rpc(command) => command.run(self.chain_endpoint).await,
             Subcommands::Tx(command) => {
-                let Some(pair) = get_signer_pair::<P>(self.name, self.mnemonic, self.seed, self.password)? else {
-                    return Err(anyhow!("{}", Error::OperationNeedsToBeSigned));
-                };
+				let signer = PairSigner::new(ed25519::Pair::from_string("lol", None)?);
+				
                 command
-                    .run(pair, self.chain_endpoint, self.output_type)
+                    .run(signer, self.chain_endpoint, self.output_type)
                     .await
             }
         }
     }
 }
 
-fn get_signer_pair<P: Pair>(
-    name: Option<Keyring>,
-    mnemonic: Option<String>,
-    seed: Option<Vec<u8>>,
-    password: Option<String>,
-) -> anyhow::Result<Option<P>>
-where
-    P::Seed: TryFrom<Vec<u8>>,
-{
-    let pair = if let Some(name) = name {
-        P::from_string(&format!("//{}", name), None)
-            .map_err(|_| anyhow!("{}", Error::InvalidSeed))?
-    } else if let Some(mnemonic) = mnemonic {
-        let (pair, _) = P::from_phrase(&mnemonic, password.as_deref())
-            .map_err(|_| anyhow!("{}", Error::InvalidPhrase))?;
-        pair
-    } else if let Some(seed) = seed {
-        let seed: P::Seed = seed
-            .try_into()
-            .map_err(|_| anyhow!("{}", Error::InvalidSeed))?;
-        P::from_seed(&seed)
-    } else {
-        return Ok(None);
-    };
-
-    Ok(Some(pair))
-}
 
 pub fn parse_keyring(s: &str) -> Result<Keyring, String> {
     Keyring::from_str(s).map_err(|_| Error::InvalidAddress.to_string())
