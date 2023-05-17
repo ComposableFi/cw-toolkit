@@ -1,7 +1,6 @@
 use super::subxt_api;
 use serde::Serialize;
 use std::{collections::BTreeMap, string::ToString};
-use subxt::ext::sp_core::crypto::Ss58Codec;
 
 pub trait PrettyDisplay {
     fn pretty_display(&self, indentation_level: usize);
@@ -50,6 +49,7 @@ pub mod cosmwasm {
 
     #[derive(Debug, Serialize)]
     pub struct Uploaded {
+        // Shoud the hash really be a string?
         pub code_hash: String,
         pub code_id: u64,
     }
@@ -57,7 +57,7 @@ pub mod cosmwasm {
     impl From<events::Uploaded> for Uploaded {
         fn from(uploaded: events::Uploaded) -> Self {
             Self {
-                code_hash: format!("{}", uploaded.code_hash),
+                code_hash: format!("{:?}", uploaded.code_hash),
                 code_id: uploaded.code_id,
             }
         }
@@ -77,9 +77,10 @@ pub mod cosmwasm {
     }
 
     impl From<events::Instantiated> for Instantiated {
-        fn from(instantiated: events::Instantiated) -> Self {
+        fn from(_instantiated: events::Instantiated) -> Self {
             Self {
-                contract_addr: instantiated.contract.to_ss58check(),
+                // contract_addr: instantiated.contract.to_ss58check(),
+                contract_addr: "TODO".into(),
             }
         }
     }
@@ -152,7 +153,8 @@ pub mod cosmwasm {
     impl From<events::Emitted> for Emitted {
         fn from(emitted: events::Emitted) -> Self {
             Self {
-                contract: emitted.contract.to_ss58check(),
+                // contract: emitted.contract.to_ss58check(),
+                contract: "TODO".into(),
                 ty: String::from_utf8_lossy(&emitted.ty).to_string(),
                 attributes: emitted
                     .attributes

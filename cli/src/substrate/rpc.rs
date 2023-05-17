@@ -5,7 +5,7 @@ use hex::ToHex;
 use jsonrpc::{Request, Response};
 use serde::de::DeserializeOwned;
 use serde_json::{value::RawValue, Value};
-use sp_core::crypto::AccountId32;
+use subxt::utils::AccountId32;
 use std::collections::BTreeMap;
 
 #[derive(Args, Debug)]

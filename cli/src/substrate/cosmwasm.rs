@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use clap::{ArgGroup, Args};
 use cosmwasm_orchestrate::fetcher::{CosmosApi, CosmosFetcher, FileFetcher};
 use std::{collections::BTreeMap, fs, io::Read, path::PathBuf};
-use subxt::ext::sp_core::crypto::AccountId32;
+use subxt::utils::AccountId32;
 
 #[derive(Args, Debug)]
 #[clap(group(
