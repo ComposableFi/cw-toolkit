@@ -176,14 +176,14 @@ async fn do_signed_transaction<CallData>(
 ) -> anyhow::Result<ExtrinsicEvents<SubstrateConfig>>
 where
 	CallData: Encode + EncodeAsFields,
-{
-    let validate = api::validate_codegen;
+{	
+    let client = OnlineClient::<SubstrateConfig>::from_url(endpoint).await?;
 	
-    let api = OnlineClient::<SubstrateConfig>::from_url(endpoint).await?;
-
-	validate(&api)?;
+	println!("api metadata hash, {:?}", client.metadata().metadata_hash(&api::PALLETS));
+	
+	api::validate_codegen(&client)?;
 		
-    let events = api
+    let events = client
         .tx()
         .sign_and_submit_then_watch_default(&tx, &signer)
         .await?
